@@ -1,19 +1,18 @@
 import mysql from "mysql"
 
-const connection = mysql.createConnection({
-    host: 'localhost',         // Replace with your MySQL server's hostname or IP
-  user: 'root',              // Replace with your MySQL username
-  password: '',              // Replace with your MySQL password (leave empty if none)
-  database: 'crud_wuth_nodejs',
-
+const connecction = mysql.createConnection({
+    host:"localhost",
+    password:"",
+    database:"crud_wuth_nodejs",
+    user:"root"
 })
 
-connection.connect((err)=>{
-    if(err){
+connecction.connect((err)=>{
+    if (err) {
         console.log(err)
-        return;
+        return        
     }
-    console.log("connected db")
+    console.log("db connected")
 })
 
-export default connection
+export default connecction
