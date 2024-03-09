@@ -1,289 +1,266 @@
 import express from "express"
+import bodyParser from "body-parser"
+import db from "./database.mjs"
+import path from "path"
+import {Server} from "socket.io"
+import http from "http"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcrypt"
 import cookieParser from "cookie-parser"
-import http from "http"
-import {Server} from "socket.io"
-import path from "path"
+import { Console } from "console"
 const __dirname = path.resolve()
 const app = express()
-const server = http.createServer(app)
-const io = new Server(server)
 const PORT = 4000
-let votesARE = null
-let votesArray = []
-import db from "./database.mjs"
-import { error } from "console"
+app.use(bodyParser.json())
 app.use(express.json())
 app.use(cookieParser())
-// app.use(express.static(path.join(__dirname,"/public")))
-const SECRET = "secret"
-
+const server = http.createServer(app)
+const io = new Server(server)
+const Secret = "hello"
+const connectedSockets = [];
+app.use(express.static(path.join(__dirname,'/public')))
 function authmidlleware(req,res,next){
-    const token = req?.cookies?.Token
-    if (!token) {
-        res.status(401).send("you are not login")
-        // res.redirect("/login")
-        return
-    }
-
-    jwt.verify(req?.cookies?.Token,SECRET,(err,decodeddata)=>{
-
-        if (err) {
-            res.status(500).send(err)
-        // res.redirect("/login")
-
-            return
-        }
-        let time = new Date().getTime() / 1000
-        if (decodeddata.exp < time) {
-            res.status(401).send("login again")
-        // res.redirect("/login")
-
-            return
-        }
-
-        req.body.decodeddata = decodeddata
-        next()
-    })
-}
-
-
-app.get("/join-table",(req,res)=>{
-
-    // db.query("INSERT INTO users ( email,name) VALUES (?,?)",["hamd444@g.com","hamd"],(err,result)=>{
-
-    //     if (err) {
-    //         res.send(err)
-    //         return            
-    //     }
-
-    //     res.send(result)
-    // })
-    // db.query("SELECT msg FROM msgs JOIN users ON (msgs.sender = 4)",(err,result)=>{
-
-    //     if (err) {
-    //         res.status(500).send(err)
-    //         return            
-    //     }
-
-    //     res.send(result)
-    // })
-
-
-    // db.query("INSERT INTO  aggritable (name,price,sales) VALUES (?,?,?)",["orange",14,30],(err,result)=>{
-
-    //     if (err) {
-    //         res.status(500).send(err)
-    //         return
-    //     }
-
-    //     res.send("done hogaya")
-    // })
-
-    // db.query("SELECT name FROM aggritable where (price = (SELECT MAX(price) FROM aggritable) , name = 'banana')",(err,result)=>{
-
-    //     if (err) {
-    //         res.status(500).send(err)
-    //     }
-
-    //     res.send(result)
-    // })
-
-    // db.query("delete from aggritable where (price < 50 OR sales < 100)",(err,result)=>{
-
-    //     if (err) {
-    //         res.status(500).send(err)
-    //         return
-    //     }
-  
-    //     db.query("select * from aggritable",(err,updated)=>{
-
-    //         if (err) {
-    //             res.send(err)
-    //             return
-    //         }
-    //         res.send(updated)
-    //     })
-    // })
-
-    // db.query("select * from departemnt",(err,result)=>{
-
-    //     if (err) {
-    //         res.status(500).send(err)
-    //         return
-
-    //     }
-
-    //     res.send(result)
-
-    //     // const newarray = result.reduce((newArray , onstep)=>{
-
-    //     //     let key = onstep.dp_name
-            
-    //     //     newArray[key] = (newArray[key] || [])
-    //     //     return newArray
-    //     // },{})
-    //     // console.log(newarray)
-
-    // //    result.reduce((newarray,obj)=>{
-
-    // //     let key = obj.id
-    // //     newarray = newarray.filter() [...newarray , obj]
-    // //    })
-
-    // let sorted = result.sort((a,b)=>b.id - a.id)
-    // console.log(sorted)
-    // })
-   
-
-})
-app.get("/login",(req,res)=>{
-
-    res.sendFile(path.join(__dirname,"/public/login.html"))
-})
-app.post("/api/login",(req,res)=>{
-    const {email,name}  = req.body
-
-    if (!email || !name) {
-        res.status(401).send("not all paramerts")
-        return
-    }
-
-    db.query("select * from users where email=?",[email],(err,result)=>{
-
-        if (err) {
-            res.status(500).send(err)
-            return
-        }
-
-        let data = result[0]
-        console.log(result)
-        if (!data) {
-            res.status(404).send("no found")
-            return
-        }
-        const token = jwt.sign({
-            id:data.id,
-            email:data.email,
-            name:data.name,
-            iat:Math.floor((Date.now() / 1000) - 30)
-
-        },SECRET)
-
-        res.cookie("Token",token,{
-            httpOnly:true,
-            maxAge:88_400_000
-        })
-
-        res.send("login sucessfully")
-
-    })
-
-    
-})
-app.get("/",(req,res)=>{
-
-    res.sendFile(path.join(__dirname,"/public/index.html"))
-})
-
-app.get("/votes",(req,res)=>{
-
-    db.query("select * from votes",(err,data)=>{
-
-        if (err) {
-            res.status(500).send(err)
-            return;
-        }
-              votesArray = data
-        let updateresult = data.reduce((newarr,existarr)=>{
-
-            let key = existarr.voteto
-
-            newarr[key] = (newarr[key] || []).concat(existarr)
-            return newarr
-        },{})
-
-        res.send(updateresult)
-        votesARE = updateresult
-    })
-})
-
-app.post("/add-vote",authmidlleware,(req,res)=>{
-    const {voteTo} = req.body
-    const userdata = req.body.decodeddata
-
-    db.query(`select voterid , voteto from votes where voterid ='${userdata.id}' `,(err,result)=>{
-
-        if (err) {
-            res.send(err)
-            return
-        }
-
-        if (!result[0]) {
-            
-            db.query("insert into votes (voterid , voteto) values (?,?) ",[userdata.id,voteTo],(err,data)=>{
-
-                if(err){
-                    res.send(err)
-                    return
-                }
-
-                res.send("voted")
-                io.of("/notify").emit("new-vote",{votes:votesARE})
-            })
-            return
-        }
-
-        db.query("update votes set voteto =? where voterid = ? ",[voteTo, userdata.id ],(err,data)=>{
+    console.log("tokenis",req?.cookies?.Token)
+    try {
+         jwt.verify(req?.cookies?.Token,Secret,(err,decoded)=>{
 
             if (err) {
-                res.status(500).send(err)
+                res.status(401).send("error login")
+                return;
+            }
+
+            let time = new Date().getTime() / 1000
+
+            if (decoded.exp < time) {
+                res.status(401).send("login again please")   
+                return             
+            }
+            console.log(decoded)
+
+            req.decodedData = decoded
+            next()
+        })
+    } catch (error) {
+        res.status(500).send(error)
+    }
+}
+app.get("/",(req,res)=>{
+    // 
+    res.sendFile(path.join(__dirname,"/public"))
+    console.log(path.join(__dirname,"/public"))
+})
+app.get("/Token",authmidlleware,(req,res)=>{
+
+    res.send(req.decodedData)
+})
+ 
+
+app.post("/addUser",async(req,res)=>{
+    const insertdata = 'INSERT INTO users (name,email) VALUES (?,?)'
+    const {name , email} = req.body
+    db.query(insertdata , [name,email], (err,result)=>{
+        if(err){
+            res.status(500).send(err)
+            return
+        }
+        res.send(result)
+
+    })
+})
+
+app.get("/Users",async(req,res)=>{
+    const readdata = "SELECT * FROM users"
+    db.query(readdata , (err,result)=>{
+
+        if (err) {
+            res.status.send(err)
+            return     
+        }
+        res.send(result)
+    })
+})
+app.delete(`/deleteUSer/:id`,async(req,res)=>{
+    const readdata = "DELETE FROM users WHERE id = ?"
+    db.query(readdata ,[req.params.id], (err,result)=>{
+
+        if (err) {
+            res.status.send(err)
+            return     
+        }
+        res.send(result)
+    })
+})
+
+app.put(`/updatedb/:id`,async(req,res)=>{
+    const {name , email } = req.body
+    const readdata = "  UPDATE users set name = ?, email = ? WHERE id = ?"
+    
+    db.query(readdata ,[name,email,req.params.id], (err,result)=>{
+
+        if (err) {
+            res.status(500).send(err)
+            return     
+        }
+        res.send(result)
+    })
+})
+app.get(`/useris/:id`,async(req,res)=>{
+    const {name , email } = req.body
+    const readdata = "select *, CONCAT(name , id,email) as concat_ids from users "
+    
+    db.query(readdata ,[req.params.id], (err,result)=>{
+
+        if (err) {
+            res.status(500).send(err)
+        }
+        // res.send(result)
+  
+        try {
+            result.map((each)=>{
+                db.query("insert into newtable (email ,updated) values (?,?)",[each.email , each.concat_ids],(err,result)=>{
+    
+                    if (err){
+                        res.status(500).send(err)
+                    }
+                    // res.send(result)
+                })
+            })
+            res.send("sucess")
+        } catch (error) {
+            console.log(error)
+        }
+     
+        
+    })
+})
+app.get(`/api/user/:id`,async(req,res)=>{
+    const readdata = "SELECT *FROM users WHERE id = ?"
+    
+    db.query(readdata ,[req.params.id], (err,result)=>{
+
+        if (err) {
+            res.status(500).send(err)
+        }
+        // res.send(result)
+     console.log(result)
+       res.send(result[0])
+     
+        
+    })
+})
+app.get("/login",(req,res)=>{
+  res.sendFile(path.join(__dirname,"/public/login.html"))
+})
+app.post("/api/login",(req,res)=>{ 
+    const {name,email} = req.body
+    console.log({name,email})
+    db.query("SELECT * FROM users WHERE email = ?",[email],(err,result)=>{
+
+        if (err) {
+            console.log(err)            
+            res.status(500).send(err)
+        }
+        console.log(result[0]?.name)
+
+        const Token = jwt.sign({
+            name:result[0].name,
+            id:result[0].id,
+            email:result[0].email,
+            iat: Math.floor(Date.now() / 1000) - 30,
+          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24),
+        },Secret)
+
+        res.cookie("Token",Token,{
+            maxAge:88_400_000,
+            httpOnly:true
+        })
+        res.send(`login sucessfull ${result[0].name}`)
+        
+    })
+})
+
+app.post("/api/send-msg",authmidlleware,(req,res)=>{
+    const {reciver , msg} = req.body
+    console.log(reciver,msg)
+
+    db.query("INSERT INTO msgs (reciver, sender, msg) VALUES (?, ?, ?)",[reciver , req?.decodedData?.id ,msg],(err,result)=>{
+
+        if (err) {
+            res.status(500).send(err)
+            return
+
+            
+        }
+        console.log(result.insertId)
+        db.query("SELECT * FROM msgs WHERE id = ?",[result.insertId],(error,row)=>{
+
+            if (error) {
+                res.status(500).send(error)
                 return
             }
-    
-            res.send("voted updated sucess")
+            console.log(row)
 
-            votesArray.push({voterid:userdata.id, voteto:voteTo})
-
-            let filterdvotes = votesArray.filter((voterid)=>(voterid.voterid !== userdata.id) && (voterid.voteto !== voteTo))
-            let updateresult = filterdvotes.reduce((newarr,existarr)=>{
-
-                let key = existarr.voteto
-    
-                newarr[key] = (newarr[key] || []).concat(existarr)
-                return newarr
-            },{})
-
-            io.of("/notify").emit("new-vote",{votes:updateresult})
-
-
+            res.send({
+                msg:"msg sent and saved in data sucessfully wowwwwwww",
+                data:row[0]})
         })
+        // io.on(`new-msg-${data.to}-${re.id}`, (data) => {
+        //     // Leave existing rooms0. 65
+        //     socket.on(`msg-to-${data.to}`,(data.msg))
+        //     // Join a room based on the user's ID
+        // });
+        io.to(`${req.decodedData.id}-${reciver}`).emit("msg-to",{reciver,msg,sender:req.decodedData.id})
+        
+        // res.send("msg saved in db")
+
     })
 
-    
-})
-io.use((socket, next)=>{
-
-
 })
 
-io.of('/notify').on('connection',(socket)=>{
+app.get("/api/msges/:id",authmidlleware,(req,res)=>{
+    let reciver =req?.params?.id
+    let sender = Number(req?.decodedData?.id)
+    console.log( sender)
+    if (!sender || !reciver) {
+        console.log(sender,reciver)
+        return
+    }
+    db.query("SELECT * FROM msgs WHERE (sender = ? AND reciver = ?) OR (sender = ? AND reciver = ?) ",[sender,reciver,reciver,sender],(err,result)=>{
 
-    console.log(socket.id)
+        if (err) {
+            res.status(500).send(err)
+            return
+        }
 
-    socket.emit("new-vote",(data)=>{
+        res.send(result)
 
-        console.log("new voted done")
     })
 })
+io.on('connection', (socket) => {
+    console.log('A user connected',socket.id);
+    connectedSockets.push(socket.id);
+    socket.on('disconnect', () => {
+        console.log('User disconnected');
+
+        // Remove the disconnected socket ID from the array
+        const index = connectedSockets.indexOf(socket.id);
+        if (index !== -1) {
+            connectedSockets.splice(index, 1);
+        }
+    });
+
+    socket.on('join-room', (room) => {
+        // Join a specific room based on the provided room ID
+ console.log("fdsaf")
+        socket.join(room);
+        console.log(`Socket ${socket.id} joined room ${room}`);
+        
+    });
+
+    // ... other event listeners ...
+});
 
 
-
-
-
-
-
-server.listen(PORT,()=>{
+server.listen(PORT, ()=>{
     console.log(PORT)
 })

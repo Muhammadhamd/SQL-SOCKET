@@ -1,90 +1,253 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
 </head>
-<body>
 <style>
-    .main{
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
         display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
     }
-    .main div {
-        border: 2px solid black;
-        width: 200px;
-        height: 300px;
-        margin: 0px 10px;
+
+    #chat-container {
+        max-width: 400px;
+        width: 100%;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #header {
+        background-color: #3498db;
+        color: #fff;
+        text-align: center;
+        padding: 10px;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+    }
+
+    #username {
+        margin: 0;
+    }
+
+    #msg-box {
+        padding: 10px;
+        overflow-y: auto;
+        max-height: 300px;
+    }
+
+    #send-msg {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        background-color: #f5f5f5;
+        border-top: 1px solid #ddd;
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: 8px;
+    }
+
+    #message {
+        flex: 1;
+        padding: 8px;
+        margin-right: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    #send-btn {
+        background-color: #3498db;
+        color: #fff;
+        border: none;
+        padding: 8px 15px;
+        cursor: pointer;
+        border-radius: 4px;
     }
 </style>
-    <div class="main">
-        <div >
-            <button id="first">vote</button>
-            <h1 id="first-per"></h1>
-        </div>
-        <div >
-            <button id="second">vote</button>
-            <h1 id="second-per"></h1>
 
+<body>
+    <div id="chat-container">
+        <div id="header">
+            <h1 id="username">Chat App</h1>
         </div>
+        <div id="msg-box"></div>
+        <form id="send-msg">
+            <input type="text" id="message" placeholder="Type your message...">
+            <!-- <button type="button" id="send-btn">Send</button> -->
+            <input type="submit">
+        </form>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-
     <script>
-        let votesArray = {}
-        const socket = io("/notify")
 
-        socket.on("connect",(scoket)=>{
-            console.log(socket.id)
-        })
-        let firstPoll = document.getElementById("first")
-        let secondPoll = document.getElementById("second")
 
-        function Calculate(first ,second){
-            let total = (first || 0) + (second || 0);
-            document.getElementById("first-per").innerHTML = ((first / total) * 100 ) 
-             document.getElementById("second-per").innerHTML =( (second / total) * 100) 
-           
+        function displayMessage(sender, message) {
+            const container = document.createElement("div");
+            container.classList.add("message-container");
+            container.textContent = `${sender}: ${message}`;
+            msgBox.appendChild(container);
         }
 
-        document.addEventListener("DOMContentLoaded",(e)=>{
-                      console.log("af")
-            axios.get("/votes")
-            .then((res)=>{console.log(res)
-              votesArray =  res.data
-                Calculate(res.data?.first?.length , res.data?.second?.length)
 
-               
+        // async function post(params) {
+        //     try {
+
+        //         const res = await axios.post("/addUser", {
+        //             email: "waqas@gmail.com",
+        //             name: "waqas"
+        //         })
+        //         console.log(res)
+        //     } catch (error) {
+        //         console.log(error)
+        //     }
+        // }
+
+        // post()
+        async function deletedb(id) {
+            try {
+
+                const res = await axios.delete(`/deleteUSer/${id}`, {
+                    email: "hamd@gmail.com",
+                    name: "hamd"
+                })
+                console.log(res)
+            } catch (error) {
+                console.log(error)
+            }
+        }
+
+        // deletedb(2);
+        async function readdb(params) {
+            try {
+
+                const res = await axios.get("/Users")
+                console.log(res)
+            } catch (error) {
+                console.log(error)
+            }
+        }
+
+        // readdb()
+        async function updatedb(id) {
+            try {
+
+                const res = await axios.put(`/updatedb/${id}`, {
+                    name: "hamd",
+                    email: "faraz@gmail.com"
+                })
+                console.log(res)
+            } catch (error) {
+                console.log(error)
+            }
+        }
+        async function getuser(id) {
+            try {
+
+                const res = await axios.get(`/useris/${id}`, {
+                    name: "hamd",
+                    email: "faraz@gmail.com"
+                })
+                console.log(res)
+            } catch (error) {
+                console.log(error)
+            }
+        }
+
+        // getuser(3)
+
+
+
+    </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let tokendata = null
+        var socket = io();
+        let msgid = new URLSearchParams(new URL(window.location.href).search).get("msg")
+        console.log(msgid)
+        const msgBox = document.getElementById("msg-box");
+        document.addEventListener("DOMContentLoaded", (e) => {
+           
+
+            axios.get(`/api/user/${msgid}`)
+                .then((res) => {
+                    console.log(res)
+                    document.getElementById("username").innerHTML = res.data.name
+                })
+                .catch((err) => {
+                    console.log(err)
+                })
+
+                axios.get("/token")
+                .then((res)=>{
+                    tokendata = res.data
+                    console.log(tokendata)
+                    socket.emit("join-room",`${msgid}-${tokendata.id}`)
+            console.log("join-room",`${msgid}-${tokendata?.id}`)
+                })
+
+                 
+            axios.get(`/api/msges/${msgid}`)
+                .then((res) => {
+                    console.log(res)
+                    msgBox.innerHTML = "";
+                    res.data?.forEach((each) => {
+                        const p = document.createElement("p");
+                        p.textContent = `${each.sender}: ${each.msg}`;
+                        p.style = `${each.reciver == msgid ? "background:blue" : null}`
+                        msgBox.appendChild(p);
+                    })
+                    // document.getElementById("username").innerHTML = res.data.name
+                })
+                .catch((err) => {
+                    console.log(err)
+                })
+       
+       
             })
-            .catch((err)=>console.log(err))
+        document.getElementById("send-msg").addEventListener("submit", (e) => {
+            let message = document.getElementById("message").value
+
+            e.preventDefault()
+            console.log("ff")
+
+            axios.post("/api/send-msg", {
+                msg: message,
+                reciver: msgid
+            })
+                .then((res) => {
+                    console.log(res.data)
+                    const p = document.createElement("p");
+                        p.textContent = `${res.data.data.sender}: ${res.data.data.msg}`;
+                        p.style = `${res.data.data.reciver == msgid ? "background:blue" : null}`
+                        msgBox.appendChild(p);
+                })
+                .catch((err) => {
+                    console.log(err)
+                })
+            // socket.emit(`new-msg-${id}-${tokendata.id}`,{ id: msgid, msg:message });?
+            message = "";
+
+
+
         })
 
-        firstPoll.addEventListener("click",(e)=>{
-     console.log("click")
-            axios.post("/add-vote",{voteTo:"first"})
-            .then((res)=>{console.log(res)
-            
-               
-            })
-            .catch((e)=>{console.log(e)})
-            socket.on("new-vote",(data)=>{
-                console.log(data.votes)
-                Calculate(votes.first , votes.second)
-            })
-        })
-        secondPoll.addEventListener("click",(e)=>{
-            console.log("click")
-
-axios.post("/add-vote",{voteTo:"second"})
-.thne((res)=>{console.log(res)
-    socket.on("new-vote",(data)=>{
-        Calculate(votes.first , votes.second)
-
-            })
-})
-.catch((e)=>{console.log(e)})
-})
+        socket.on(`msg-to`, (data) => {
+            // displayMessage(data.sender, data.message);
+            console.log(data)
+            const p = document.createElement("p");
+                        p.textContent = `${data.sender}: ${data.msg}`;
+                        p.style = `${data.reciver == msgid ? "background:blue" : null}`
+                        msgBox.appendChild(p);
+        });
     </script>
 </body>
+
 </html>

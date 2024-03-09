@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="inbox">
+
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
+
+    <script>
+
+        document.addEventListener("DOMContentLoaded",()=>{
+        
+        let inboxBox = document.getElementById("inbox")
+        axios.get("/api/inbox")
+        .then((res)=>{
+            res.data.map((each)=>{
+                inboxBox.innerHTML += `<div> <a href="/?msg=${each.id}">${each.name}</a> <button onClick="deleteConversation(${each.id})">Delete</button></div>`
+            })
+        })
+        .catch((err)=>{console.log(err)})
+
+    })
+
+
+    async function deleteConversation(id){
+        try {
+           const isdelete = await axios.delete(`/api/deleteAllConversation/${id}`)
+           
+           console.log(isdelete)
+        } catch (error) {
+            console.log(error)
+        }
+    }
+        </script>
+</body>
+</html>

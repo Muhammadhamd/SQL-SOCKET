@@ -188,8 +188,10 @@
                 .then((res)=>{
                     tokendata = res.data
                     console.log(tokendata)
-                    socket.emit("join-room",`${msgid}-${tokendata.id}`)
-            console.log("join-room",`${msgid}-${tokendata?.id}`)
+                    socket.emit("join-room",{
+                        sender:tokendata.id,
+                        reciver:msgid
+                    })
                 })
 
                  
@@ -222,11 +224,7 @@
                 reciver: msgid
             })
                 .then((res) => {
-                    console.log(res.data)
-                    const p = document.createElement("p");
-                        p.textContent = `${res.data.data.sender}: ${res.data.data.msg}`;
-                        p.style = `${res.data.data.reciver == msgid ? "background:blue" : null}`
-                        msgBox.appendChild(p);
+                    
                 })
                 .catch((err) => {
                     console.log(err)
