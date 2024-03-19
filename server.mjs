@@ -20,7 +20,6 @@ const Secret = "hello"
 const connectedSockets = [];
 app.use(express.static(path.join(__dirname,'/public')))
 function authmidlleware(req,res,next){
-    console.log("tokenis",req?.cookies?.Token)
     try {
          jwt.verify(req?.cookies?.Token,Secret,(err,decoded)=>{
 
@@ -32,6 +31,7 @@ function authmidlleware(req,res,next){
             let time = new Date().getTime() / 1000
 
             if (decoded.exp < time) {
+                console.log("login again hjaha")
                 res.status(401).send("login again please")   
                 return             
             }
@@ -90,6 +90,24 @@ app.delete(`/deleteUSer/:id`,async(req,res)=>{
         res.send(result)
     })
 })
+app.get("/api/inbox", authmidlleware, async (req, res) => {
+    db.query(`SELECT u.* 
+    FROM inboxes AS Ib
+    JOIN users AS u ON Ib.userId = u.id
+    WHERE ofInbox = ?` ,[req.decodedData.id], (err,result)=>{
+
+        if (err) {
+            res.status(500).send(err)
+            return
+        }
+        // res.send(result)
+     console.log(result)
+     if(result.length > 0) return res.send(result) 
+       res.status(404).send(false)
+     
+        
+    })
+});
 
 app.put(`/updatedb/:id`,async(req,res)=>{
     const {name , email } = req.body
@@ -133,7 +151,7 @@ app.get(`/useris/:id`,async(req,res)=>{
         
     })
 })
-app.get(`/api/user/:id`,async(req,res)=>{
+app.get(`/api/user/:id`,authmidlleware,async(req,res)=>{
     const readdata = "SELECT *FROM users WHERE id = ?"
     
     db.query(readdata ,[req.params.id], (err,result)=>{
@@ -151,6 +169,10 @@ app.get(`/api/user/:id`,async(req,res)=>{
 app.get("/login",(req,res)=>{
   res.sendFile(path.join(__dirname,"/public/login.html"))
 })
+app.get("/inbox",authmidlleware,(req,res)=>{
+    res.sendFile(path.join(__dirname,"/public/inbox.html"))
+})
+
 app.post("/api/login",(req,res)=>{ 
     const {name,email} = req.body
     console.log({name,email})
@@ -159,11 +181,12 @@ app.post("/api/login",(req,res)=>{
         if (err) {
             console.log(err)            
             res.status(500).send(err)
+            return
         }
         console.log(result[0]?.name)
 
         const Token = jwt.sign({
-            name:result[0].name,
+            name:result[0]?.name,
             id:result[0].id,
             email:result[0].email,
             iat: Math.floor(Date.now() / 1000) - 30,
@@ -179,63 +202,123 @@ app.post("/api/login",(req,res)=>{
     })
 })
 
-app.post("/api/send-msg",authmidlleware,(req,res)=>{
-    const {reciver , msg} = req.body
-    console.log(reciver,msg)
+app.post("/api/send-msg", authmidlleware, (req, res) => {
+    const { reciver, msg } = req.body;
 
-    db.query("INSERT INTO msgs (reciver, sender, msg) VALUES (?, ?, ?)",[reciver , req?.decodedData?.id ,msg],(err,result)=>{
-
+    try {
+        // Insert message into the database
+    db.query("INSERT INTO msgs (reciver, sender, msg) VALUES (?, ?, ?)", [reciver, req.decodedData.id, msg], (err, result) => {
         if (err) {
-            res.status(500).send(err)
-            return
-
-            
+            console.error("Error saving message to database:", err);
+            return res.status(500).send("Error saving message to database");
         }
-        console.log(result.insertId)
-        db.query("SELECT * FROM msgs WHERE id = ?",[result.insertId],(error,row)=>{
 
-            if (error) {
-                res.status(500).send(error)
-                return
+        // Emit message to recipient
+        const room = `${reciver}-${req.decodedData.id}`;
+        if (io.sockets.adapter.rooms.get(room)) {
+            io.to(room).emit("msg-to", { reciver, msg, sender: req.decodedData.id });
+        } else {
+            io.to(`${req.decodedData.id}-${reciver}`).emit("msg-to", { reciver, msg, sender: req.decodedData.id });
+        }
+
+        // Insert inbox record if it doesn't exist
+        db.query(`
+            INSERT INTO inboxes (userId, ofInbox)
+            SELECT ?, ?
+            WHERE NOT EXISTS (
+                SELECT 1 FROM inboxes WHERE userId = ? AND ofInbox = ?
+            )
+        `, [req.decodedData.id, reciver, req.decodedData.id, reciver], (inboxErr, inboxResult) => {
+            if (inboxErr) {
+                console.error("Error inserting inbox record:", inboxErr);
+                return res.status(500).send("Error inserting inbox record");
             }
-            console.log(row)
 
-            res.send({
-                msg:"msg sent and saved in data sucessfully wowwwwwww",
-                data:row[0]})
+        });
+        db.query(`
+        INSERT INTO inboxes (ofInbox, userId)
+        SELECT ?, ?
+        WHERE NOT EXISTS (
+            SELECT 1 FROM inboxes WHERE ofInbox = ? AND userId = ?
+        )
+    `, [req.decodedData.id, reciver, req.decodedData.id, reciver], (inboxErr, inboxResult) => {
+        if (inboxErr) {
+            console.error("Error inserting inbox record:", inboxErr);
+            return res.status(500).send("Error inserting inbox record");
+        }
+
+    });
+        // Insert inbox record if it doesn't exist
+      
+    });
+
+    res.send("message sucess")
+    } catch (error) {
+        res.status(500).send({
+            error,
+            msg:"error arha ha msg bejhte we"
         })
-        // io.on(`new-msg-${data.to}-${re.id}`, (data) => {
-        //     // Leave existing rooms0. 65
-        //     socket.on(`msg-to-${data.to}`,(data.msg))
-        //     // Join a room based on the user's ID
-        // });
-        io.to(`${req.decodedData.id}-${reciver}`).emit("msg-to",{reciver,msg,sender:req.decodedData.id})
-        
-        // res.send("msg saved in db")
+    }
+});
 
-    })
 
-})
-
-app.get("/api/msges/:id",authmidlleware,(req,res)=>{
-    let reciver =req?.params?.id
+app.get("/api/msges/:id", authmidlleware, (req, res) => {
+    let receiver = req?.params?.id
     let sender = Number(req?.decodedData?.id)
-    console.log( sender)
-    if (!sender || !reciver) {
-        console.log(sender,reciver)
+    if (!sender || !receiver) {
+        console.log(sender, receiver)
         return
     }
-    db.query("SELECT * FROM msgs WHERE (sender = ? AND reciver = ?) OR (sender = ? AND reciver = ?) ",[sender,reciver,reciver,sender],(err,result)=>{
+    let offset = parseInt(req.query?.offset) || 0
+    console.log(offset)
+    db.query(`SELECT * FROM msgs
+     WHERE (
+        (sender = ${sender} AND reciver = ${receiver} AND senderDelete = 0) 
+        OR 
+        (sender = ${receiver} AND reciver = ${sender} AND reciverDelete = 0)
+        )
+        ORDER BY timestamp DESC
+        LIMIT 20 OFFSET ${offset}
+        
 
+        `
+      , [sender], (err, result) => {
         if (err) {
             res.status(500).send(err)
             return
         }
-
-        res.send(result)
-
+        res.send(result.reverse())
     })
 })
+app.delete("/api/deleteAllConversation/:id",authmidlleware,(req,res)=>{
+
+    db.query(`
+    UPDATE msgs 
+    SET 
+        senderDelete = CASE 
+            WHEN sender = ${req.decodedData.id} AND reciver = ${req.params.id} THEN 1 
+            ELSE senderDelete 
+        END,
+        reciverDelete = CASE 
+            WHEN reciver = ${req.decodedData.id} AND sender = ${req.params.id} THEN 1 
+            ELSE reciverDelete 
+        END
+    WHERE
+        (sender = ${req.decodedData.id} AND reciver = ${req.params.id}) OR
+        (reciver = ${req.decodedData.id} AND sender = ${req.params.id})
+`,(err,result)=>{
+
+    if(err) return res.status(400).send(err)
+    res.send("deleted sucessfully")
+});
+
+db.query(`
+DELETE FROM inboxes 
+WHERE (ofInbox = ${req.decodedData.id} AND userId = ${req.params.id})
+`)
+
+
+}) 
 io.on('connection', (socket) => {
     console.log('A user connected',socket.id);
     connectedSockets.push(socket.id);
@@ -250,9 +333,16 @@ io.on('connection', (socket) => {
     });
 
     socket.on('join-room', (room) => {
-        // Join a specific room based on the provided room ID
- console.log("fdsaf")
-        socket.join(room);
+        const {reciver,sender} = room
+        if (io.sockets.adapter.rooms.get(`${reciver}-${sender}`)) {
+         socket.join(`${reciver}-${sender}`)
+        room = `${reciver}-${sender}`
+
+        }else{
+         socket.join(`${sender}-${reciver}`)
+        room = `${sender}-${reciver}`
+            
+        }
         console.log(`Socket ${socket.id} joined room ${room}`);
         
     });

@@ -1,11 +1,10 @@
 {
-  "name": "nodejscrud",
+  "name": "chatapp",
   "version": "1.0.0",
   "description": "",
-  "main": "server.mjs",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.mjs",
     "dev": "nodemon server.mjs"
   },
   "author": "",
@@ -14,10 +13,11 @@
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
-    "express": "^4.18.2",
+    "express": "^4.18.3",
+    "http": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
     "mysql": "^2.18.1",
-    "nodemon": "^3.0.3",
+    "nodemon": "^3.1.0",
     "socket.io": "^4.7.4"
   }
 }
